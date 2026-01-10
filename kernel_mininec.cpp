@@ -54,7 +54,6 @@ static SegmentGeom segmentGeom(const Geometry& g, int s)
     return sg;
 }
 
-
 static double segmentLength(const Geometry& g, int s)
 {
     const auto& seg = g.segments[s];
@@ -66,62 +65,6 @@ static double segmentLength(const Geometry& g, int s)
     double dz = b.z - a.z;
     return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
-
-
-
-
-
-// std::complex<double>
-// MininecKernel::psiScalarSelf(const Geometry& geom, int s) const
-// {
-//     double S = segmentLength(geom, s);
-//     double a = geom.segments[s].radius;
-
-//     return {
-//         2.0 * std::log(S / a),
-//         -k_ * S
-//     };
-// }
-
-// std::complex<double>
-// MininecKernel::psiVectorSelf(const Geometry& geom, int s) const
-// {
-//     double S = segmentLength(geom, s);
-//     double a = geom.segments[s].radius;
-
-//     return {
-//         std::log(S / a),
-//         -0.5 * k_ * S
-//     };
-// }
-
-
-// std::complex<double>
-// MininecKernel::psiGauss(
-//     const Geometry& geom,
-//     int obsSeg,
-//     int srcSeg,
-//     bool vectorCase
-//     ) const
-// {
-//     double xo, yo, zo;
-//     double xs, ys, zs;
-
-//     segmentMidpoint(geom, obsSeg, xo, yo, zo);
-//     segmentMidpoint(geom, srcSeg, xs, ys, zs);
-
-//     double dx = xo - xs;
-//     double dy = yo - ys;
-//     double dz = zo - zs;
-
-//     double R = std::sqrt(dx*dx + dy*dy + dz*dz);
-//     if (R < 1e-9) R = 1e-9;
-
-//     std::complex<double> G =
-//         std::exp(std::complex<double>(0, -k_ * R)) / R;
-
-//     return G;
-// }
 
 std::complex<double>
 MininecKernel::scalarPotential(
@@ -151,19 +94,23 @@ MininecKernel::vectorPotential(
     return w2_ * psiGauss(geom, obsSeg, srcSeg, true);
 }
 
-void kernel28(
-    double& re, double& im,
-    double dx, double dy, double dz,
-    double k
-    )
+void MininecKernel::kernel28(
+    double& re,
+    double& im,
+    double dx,
+    double dy,
+    double dz
+    ) const
 {
     double R = std::sqrt(dx*dx + dy*dy + dz*dz);
-    if (R < 1e-9) R = 1e-9;
+    if (R < 1e-12) R = 1e-12;
 
-    double phase = k * R;
+    double phase = k_ * R;
+
     re += std::cos(phase) / R;
     im -= std::sin(phase) / R;
 }
+
 
 std::complex<double>
 MininecKernel::psiGauss(
@@ -198,8 +145,7 @@ MininecKernel::psiGauss(
             re, im,
             xo - xs,
             yo - ys,
-            zo - zs,
-            k_
+            zo - zs
             );
     }
 

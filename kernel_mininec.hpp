@@ -42,6 +42,11 @@ private:
         int srcSeg,
         bool vectorCase
         ) const;
+
+    void kernel28(
+        double& re, double& im,
+        double dx, double dy, double dz
+        ) const;
 };
 
 #endif
