@@ -10,23 +10,31 @@ struct Node {
 };
 
 struct Segment {
-    int n1;           // start node index
-    int n2;           // end node index
-    double radius;    // wire radius
+    int n1;
+    int n2;
+    int wire;   // index W
 };
+
 
 class Geometry {
 public:
+    // Topologi
     std::vector<Node> nodes;
     std::vector<Segment> segments;
 
-    int feedSegment = -1;
+    // === MININEC ===
+    std::vector<double> wireRadius;   // A(W)
+    std::vector<double> wireSegLen;   // S(W)
 
-    static Geometry dipole(
-        double length,
-        double radius,
-        int segmentCount
-        );
+    // MININEC: vilken tråd varje segment ligger på
+    // motsvarar W%(I) i BASIC
+    std::vector<int> wireOfSegment;
+
+    // Hjälpfunktioner (ren geometri)
+    double segmentLength(int seg) const;
+
+    // === DEN DU FRÅGAR EFTER ===
+    static Geometry standardDipoleMININEC();
 };
 
 #endif

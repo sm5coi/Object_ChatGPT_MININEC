@@ -1,36 +1,49 @@
 #include "geometry.hpp"
 #include <cmath>
 
-Geometry Geometry::dipole(
-    double length,
-    double radius,
-    int segmentCount
-    ) {
+double Geometry::segmentLength(int seg) const
+{
+    const auto& s = segments.at(seg);
+    const auto& a = nodes.at(s.n1);
+    const auto& b = nodes.at(s.n2);
+
+    double dx = b.x - a.x;
+    double dy = b.y - a.y;
+    double dz = b.z - a.z;
+
+    return std::sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+Geometry Geometry::standardDipoleMININEC()
+{
     Geometry g;
 
-    // Build nodes along Z-axis, centered at origin
-    double dz = length / segmentCount;
-    int nodeCount = segmentCount + 1;
+    const double a = 0.004;
+    const double h = 0.191;
+    const double L = 0.309;
 
-    g.nodes.reserve(nodeCount);
+    const int Nv = 4;
+    const int Nh = 6;
 
-    double z0 = -0.5 * length;
-    for (int i = 0; i < nodeCount; ++i) {
-        g.nodes.push_back({0.0, 0.0, z0 + i * dz});
-    }
+    // --- Noder ---
+    g.nodes.push_back({0,0,0});
+    for (int i = 1; i <= Nv; ++i)
+        g.nodes.push_back({0,0,h*i/Nv});
 
-    // Build segments
-    g.segments.reserve(segmentCount);
-    for (int i = 0; i < segmentCount; ++i) {
-        g.segments.push_back({
-            i,        // node i
-            i + 1,    // node i+1
-            radius
-        });
-    }
+    int top = g.nodes.size() - 1;
+    for (int i = 1; i <= Nh; ++i)
+        g.nodes.push_back({0, L*i/Nh, h});
 
-    // Feed at center segment
-    g.feedSegment = segmentCount / 2;
+    // --- Trådar ---
+    g.wireRadius = { a, a };
+    g.wireSegLen = { h/Nv, L/Nh };
+
+    // --- Segment ---
+    for (int i = 0; i < Nv; ++i)
+        g.segments.push_back({i, i+1, 0});
+
+    for (int i = 0; i < Nh; ++i)
+        g.segments.push_back({top+i, top+i+1, 1});
 
     return g;
 }

@@ -1,5 +1,20 @@
 #include "mom_solver.hpp"
-#include <stdexcept>
+#include "impedance_matrix.hpp"
+#include "excitation.hpp"
+#include <cmath>
+
+std::vector<MoMSolver::Complex>
+MoMSolver::buildVoltageVector(int N, const Excitation& ex) const
+{
+    std::vector<Complex> V(N, {0.0, 0.0});
+
+    V[ex.segment] = {
+        ex.voltage * std::cos(ex.phase),
+        ex.voltage * std::sin(ex.phase)
+    };
+
+    return V;
+}
 
 // ------------------------------------------------------------
 // Public API
