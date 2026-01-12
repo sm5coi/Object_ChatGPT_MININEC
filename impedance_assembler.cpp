@@ -45,11 +45,32 @@ ImpedanceAssembler::build(const Geometry& geom) const
             if (i == j)
             {
                 Z(i,j) = kernel_.selfImpedanceAnalytic(geom, i);
+
+                if (i == 0 && j == 0) {
+                    std::cout << "Z(" << i << "," << j << ") = ";
+                    std::cout << Z(i,j) << "\n";
+                    //std::cout << "  psiV = " << psiV << "\n";
+                    //std::cout << "  grad = " << grad << "\n";
+                }
+
+
                 continue;
             }
 
-            auto psiS = kernel_.scalarPotential(geom, i, j);
-            auto psiV = kernel_.vectorPotential(geom, i, j);
+            // auto psiS = kernel_.scalarPotential(geom, i, j);
+            // auto psiV = kernel_.vectorPotential(geom, i, j);
+
+            Complex psiS(0.0, 0.0);
+            Complex psiV(0.0, 0.0);
+
+            // scalar/vector potential ONLY between different wires
+            if (geom.segments[i].wire != geom.segments[j].wire)
+            {
+                psiS = kernel_.scalarPotential(geom, i, j);
+                psiV = kernel_.vectorPotential(geom, i, j);
+            }
+
+
 
             Vec3 Ti = geom.segments[i].unitDir(geom);
             Vec3 Aj = geom.segments[j].unitDir(geom);
@@ -57,9 +78,36 @@ ImpedanceAssembler::build(const Geometry& geom) const
 
             auto vecTerm = dotTA * psiV;
 
+            // Complex grad(0.0, 0.0);
+            // if (!geom.areAdjacentOnSameWire(i, j))
+            //     grad = gradPhiContributionMININEC(geom, i, j);
+
             Complex grad(0.0, 0.0);
-            if (!geom.areAdjacentOnSameWire(i, j))
+            if (geom.segments[i].wire != geom.segments[j].wire)
                 grad = gradPhiContributionMININEC(geom, i, j);
+
+
+            if (i == 0 && j == 0) {
+                std::cout << "Z(" << i << "," << j << ")\n";
+                std::cout << "  psiS = " << psiS << "\n";
+                std::cout << "  psiV = " << psiV << "\n";
+                std::cout << "  grad = " << grad << "\n";
+            }
+
+
+            if (i == 2 && j == 8) {
+                std::cout << "Z(" << i << "," << j << ")\n";
+                std::cout << "  psiS = " << psiS << "\n";
+                std::cout << "  psiV = " << psiV << "\n";
+                std::cout << "  grad = " << grad << "\n";
+            }
+
+            if (i == 5 && j == 6) {
+                std::cout << "Z(" << i << "," << j << ")\n";
+                std::cout << "  psiS = " << psiS << "\n";
+                std::cout << "  psiV = " << psiV << "\n";
+                std::cout << "  grad = " << grad << "\n";
+            }
 
             Z(i,j) = psiS + vecTerm + grad;
         }

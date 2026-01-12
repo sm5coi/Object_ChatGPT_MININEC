@@ -29,8 +29,10 @@ Geometry Geometry::standardDipoleMININEC(
         seg.radius = radius;
 
         g.segments.push_back(seg);
-        g.wireOfSegment.push_back(0);
+        //g.wireOfSegment.push_back(0);
     }
+
+    g.frequencyHz = freqHz;
 
     return g;
 }
@@ -76,4 +78,15 @@ bool Geometry::areAdjacentOnSameWire(int i, int j) const
     return std::abs(i - j) <= 1;
 }
 
+double Geometry::Segment::length(const Geometry& geom) const
+{
+    const auto& p1 = geom.nodes[n1];
+    const auto& p2 = geom.nodes[n2];
+
+    double dx = p2.x - p1.x;
+    double dy = p2.y - p1.y;
+    double dz = p2.z - p1.z;
+
+    return std::sqrt(dx*dx + dy*dy + dz*dz);
+}
 

@@ -17,29 +17,8 @@ MininecKernel::MininecKernel(double k, double srm)
     : k_(k),
     srm_(srm)
 {
-    // MININEC-konstanter för exact kernel (C0..C9)
-    // C_[0] = 1.38629436112;
-    // C_[1] = 0.09666344259;
-    // C_[2] = 0.03590092383;
-    // C_[3] = 0.03742563713;
-    // C_[4] = 0.01451196212;
-    // C_[5] = 0.5;
-    // C_[6] = 0.12498593397;
-    // C_[7] = 0.06880248576;
-    // C_[8] = 0.0332835346;
-    // C_[9] = 0.00441787012;
+
 }
-
-
-
-
-// MininecKernel::MininecKernel(double frequency)
-// {
-//     double lambda = C0 / frequency;
-//     k_  = 2.0 * PI / lambda;
-//     w2_ = 15.0;   // ≈ Z0 / (8π)
-// }
-
 
 inline int wireOf(const Geometry& geom, int seg)
 {
@@ -324,25 +303,61 @@ MininecKernel::psiGaussCore(
     return {re, im};
 }
 
-// Complex MininecKernel::selfImpedanceAnalytic(const Geometry&, int) const
-// {
-//     // TEMP: returnera 0 istället för oändlighet
-//     return Complex(0.0, 0.0);
-// }
-
 Complex MininecKernel::vectorPotential(
     const Geometry& geom, int obsSeg, int srcSeg) const
 {
-    // TEMP: samma som scalarPotential
-    return scalarPotential(geom, obsSeg, srcSeg);
+    // Skalärpotential
+    Complex psiS = scalarPotential(geom, obsSeg, srcSeg);
+
+    // --- källsegmentets längd ---
+    const auto& seg = geom.segments[srcSeg];
+    const auto& p1  = geom.nodes[seg.n1];
+    const auto& p2  = geom.nodes[seg.n2];
+
+    double dx = p2.x - p1.x;
+    double dy = p2.y - p1.y;
+    double dz = p2.z - p1.z;
+    double L  = std::sqrt(dx*dx + dy*dy + dz*dz);
+
+    // --- vågtal ---
+    double freq = geom.frequencyHz;
+    double c0   = 299792458.0;
+    double k    = 2.0 * M_PI * freq / c0;
+
+    // --- MININEC första ordningens vektorterm ---
+    double scale = std::cos(0.5 * k * L);
+
+    return psiS * scale;
 }
 
 Complex MininecKernel::selfImpedanceAnalytic(
-    const Geometry&, int) const
+    const Geometry& geom, int segIdx) const
 {
-    // TEMP: stabil nollterm
-    return Complex(0.0, 0.0);
+    const auto& seg = geom.segments[segIdx];
+
+    const auto& p1 = geom.nodes[seg.n1];
+    const auto& p2 = geom.nodes[seg.n2];
+
+    double dx = p2.x - p1.x;
+    double dy = p2.y - p1.y;
+    double dz = p2.z - p1.z;
+
+    double L = std::sqrt(dx*dx + dy*dy + dz*dz);
+    if (L <= 0.0)
+        return Complex(0.0, 0.0);
+
+    double a = 1e-3;
+
+    const double gamma = 0.5772156649015328606;
+
+    double realPart = std::log(2.0 * L / a) - 1.0 - gamma;
+
+    double freq = geom.frequencyHz;
+    double c0   = 299792458.0;
+    double k    = 2.0 * M_PI * freq / c0;
+
+    double imagPart = 0.5 * M_PI - k * L;
+
+    return Complex(realPart, imagPart);
 }
-
-
 

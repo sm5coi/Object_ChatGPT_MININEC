@@ -29,6 +29,4 @@ private:
     std::vector<Complex> data_;
 };
 
-
-
 #endif

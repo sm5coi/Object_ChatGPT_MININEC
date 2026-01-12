@@ -16,11 +16,14 @@ public:
         double radius;
 
         Vec3 unitDir(const Geometry& geom) const;
+        double length(const Geometry& geom) const;
     };
 
     std::vector<Node>    nodes;
     std::vector<Segment> segments;
     std::vector<int>     wireOfSegment;
+
+    double frequencyHz = 0.0;
 
     bool areAdjacentOnSameWire(int i, int j) const;
 
