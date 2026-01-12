@@ -16,7 +16,9 @@ add_executable(Object_ChatGPT_MININEC main.cpp
     mom_solver.cpp
     mininec_kernel.hpp
     impedance_matrix.hpp
-    excitation.hpp)
+    excitation.hpp
+    Vec3.hpp
+    types.hpp)
 
 include(GNUInstallDirs)
 install(TARGETS Object_ChatGPT_MININEC

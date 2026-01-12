@@ -2,27 +2,34 @@
 #define MININEC_KERNEL_H
 
 #include "geometry.hpp"
+#include "types.hpp"
 #include <complex>
 
 class Geometry;
 
 class MininecKernel {
 public:
-    using Complex = std::complex<double>;
+    //using Complex = std::complex<double>;
 
     explicit MininecKernel(double k, double srm);
 
+    Complex scalarPotential(const Geometry&, int obsSeg, int srcSeg) const;
 
+    Complex gradPhiContributionMININEC(const Geometry&, int obsSeg, int srcSeg) const;
+
+    // TEMPORÄR STUB
+    Complex vectorPotential(const Geometry&, int obsSeg, int srcSeg) const;
+    Complex selfImpedanceAnalytic(const Geometry&, int seg) const;
     // -------------------------------------------------
     // Standard scalar ψ
     // Motsvarar: ψ(M, N, N+½)
     // Används av vektorpotentialdelen
     // -------------------------------------------------
-    Complex scalarPotential(
-        const Geometry& geom,
-        int obsSeg,
-        int srcSeg
-        ) const;
+    // Complex scalarPotential(
+    //     const Geometry& geom,
+    //     int obsSeg,
+    //     int srcSeg
+    //     ) const;
 
     // -------------------------------------------------
     // MININEC-exakt scalar ψ (GOSUB 87)

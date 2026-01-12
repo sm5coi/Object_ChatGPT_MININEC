@@ -1,11 +1,45 @@
 #include "geometry.hpp"
 #include <cmath>
 
-double Geometry::segmentLength(int seg) const
+Geometry Geometry::standardDipoleMININEC(
+    double freqHz,
+    int    nSeg,
+    double radius
+    )
 {
-    const auto& s = segments.at(seg);
-    const auto& a = nodes.at(s.n1);
-    const auto& b = nodes.at(s.n2);
+    Geometry g;
+
+    const double c0 = 299792458.0;
+    const double lambda = c0 / freqHz;
+    const double L = 0.5 * lambda;          // halvvågsdipol
+    const double dz = L / nSeg;
+
+    // --- skapa noder ---
+    for (int i = 0; i <= nSeg; ++i) {
+        double z = -0.5 * L + i * dz;
+        g.nodes.push_back({0.0, 0.0, z});
+    }
+
+    // --- skapa segment ---
+    for (int i = 0; i < nSeg; ++i) {
+        Geometry::Segment seg;
+        seg.n1 = i;
+        seg.n2 = i + 1;
+        seg.wire = 0;           // endast en wire
+        seg.radius = radius;
+
+        g.segments.push_back(seg);
+        g.wireOfSegment.push_back(0);
+    }
+
+    return g;
+}
+
+double Geometry::segmentLength(int s) const
+{
+    const auto& seg = segments[s];
+    const auto& a = nodes[seg.n1];
+    const auto& b = nodes[seg.n2];
 
     double dx = b.x - a.x;
     double dy = b.y - a.y;
@@ -14,38 +48,32 @@ double Geometry::segmentLength(int seg) const
     return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-Geometry Geometry::standardDipoleMININEC()
+Vec3 Geometry::Segment::unitDir(const Geometry& geom) const
 {
-    Geometry g;
+    const auto& n1p = geom.nodes[n1];
+    const auto& n2p = geom.nodes[n2];
 
-    const double a = 0.004;
-    const double h = 0.191;
-    const double L = 0.309;
+    Vec3 d(
+        n2p.x - n1p.x,
+        n2p.y - n1p.y,
+        n2p.z - n1p.z
+        );
 
-    const int Nv = 4;
-    const int Nh = 6;
+    double L = d.norm();
+    assert(L > 0.0);
+    return d / L;
+}
 
-    // --- Noder ---
-    g.nodes.push_back({0,0,0});
-    for (int i = 1; i <= Nv; ++i)
-        g.nodes.push_back({0,0,h*i/Nv});
 
-    int top = g.nodes.size() - 1;
-    for (int i = 1; i <= Nh; ++i)
-        g.nodes.push_back({0, L*i/Nh, h});
+bool Geometry::areAdjacentOnSameWire(int i, int j) const
+{
+    const auto& si = segments[i];
+    const auto& sj = segments[j];
 
-    // --- Trådar ---
-    g.wireRadius = { a, a };
-    g.wireSegLen = { h/Nv, L/Nh };
+    if (si.wire != sj.wire)
+        return false;
 
-    // --- Segment ---
-    for (int i = 0; i < Nv; ++i)
-        g.segments.push_back({i, i+1, 0});
-
-    for (int i = 0; i < Nh; ++i)
-        g.segments.push_back({top+i, top+i+1, 1});
-
-    return g;
+    return std::abs(i - j) <= 1;
 }
 
 

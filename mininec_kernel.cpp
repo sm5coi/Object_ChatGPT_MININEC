@@ -1,11 +1,14 @@
 #include "mininec_kernel.hpp"
 #include "geometry.hpp"
+#include "types.hpp"
 #include <cmath>
 
 namespace {
 constexpr double PI = 3.14159265358979323846;
 constexpr double C0 = 299792458.0;
 }
+
+//using Complex = std::complex<double>;
 
 // ------------------------------------------------------------
 // Constructor
@@ -45,14 +48,15 @@ inline int wireOf(const Geometry& geom, int seg)
 
 int MininecKernel::baseP1(const Geometry& geom, int obsSeg) const
 {
-    // BASIC: P1 = 2*W%(I) + I - 1
-    return 2 * geom.wireOfSegment[obsSeg] + obsSeg - 1;
+    //
+    return 2 * geom.segments[obsSeg].wire + obsSeg;
+
 }
 
 int MininecKernel::baseP2(const Geometry& geom, int srcSeg) const
 {
-    // BASIC: P2 = 2*W%(J) + J - 1
-    return 2 * geom.wireOfSegment[srcSeg] + srcSeg - 1;
+    // C++-anpassad MININEC-formel
+    return 2 * geom.segments[srcSeg].wire + srcSeg;
 }
 
 struct SegmentGeom {
@@ -104,8 +108,8 @@ static double segmentLength(const Geometry& g, int s)
     return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-MininecKernel::Complex
-MininecKernel::scalarPotential(
+
+Complex MininecKernel::scalarPotential(
     const Geometry& geom,
     int obsSeg,
     int srcSeg
@@ -114,8 +118,8 @@ MininecKernel::scalarPotential(
     return psiGauss(geom, obsSeg, srcSeg, false);
 }
 
-MininecKernel::Complex
-MininecKernel::scalarPotentialMININEC(
+
+Complex MininecKernel::scalarPotentialMININEC(
     const Geometry& geom,
     int obsSeg,
     int srcSeg,
@@ -133,8 +137,7 @@ MininecKernel::scalarPotentialMININEC(
         );
 }
 
-MininecKernel::Complex
-MininecKernel::vectorPotentialMININEC(
+Complex MininecKernel::vectorPotentialMININEC(
     const Geometry& geom,
     int obsSeg,
     int srcSeg,
@@ -312,13 +315,33 @@ MininecKernel::psiGaussCore(
     // 4) Gauss + kernel28 (kommer härnäst)
     // --------------------------------------------------
     int w = geom.segments[srcSeg].wire;
-    double A  = geom.wireRadius[w];
+    double A = geom.segments[srcSeg].radius;
     double A2 = A * A;
     double I6 = 0.0;   // tills vidare
 
     kernel28(re, im, dx, dy, dz, A, A2, I6);
 
     return {re, im};
+}
+
+// Complex MininecKernel::selfImpedanceAnalytic(const Geometry&, int) const
+// {
+//     // TEMP: returnera 0 istället för oändlighet
+//     return Complex(0.0, 0.0);
+// }
+
+Complex MininecKernel::vectorPotential(
+    const Geometry& geom, int obsSeg, int srcSeg) const
+{
+    // TEMP: samma som scalarPotential
+    return scalarPotential(geom, obsSeg, srcSeg);
+}
+
+Complex MininecKernel::selfImpedanceAnalytic(
+    const Geometry&, int) const
+{
+    // TEMP: stabil nollterm
+    return Complex(0.0, 0.0);
 }
 
 

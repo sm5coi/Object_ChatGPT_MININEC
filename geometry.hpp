@@ -1,40 +1,37 @@
 #ifndef GEOMETRY_HPP
 #define GEOMETRY_HPP
 
+#include "Vec3.hpp"
 #include <vector>
-
-struct Node {
-    double x;
-    double y;
-    double z;
-};
-
-struct Segment {
-    int n1;
-    int n2;
-    int wire;   // index W
-};
-
 
 class Geometry {
 public:
-    // Topologi
-    std::vector<Node> nodes;
+    struct Node {
+        double x, y, z;
+    };
+
+    struct Segment {
+        int n1, n2;     // nodindex
+        int wire;       // wire-id
+        double radius;
+
+        Vec3 unitDir(const Geometry& geom) const;
+    };
+
+    std::vector<Node>    nodes;
     std::vector<Segment> segments;
+    std::vector<int>     wireOfSegment;
 
-    // === MININEC ===
-    std::vector<double> wireRadius;   // A(W)
-    std::vector<double> wireSegLen;   // S(W)
+    bool areAdjacentOnSameWire(int i, int j) const;
 
-    // MININEC: vilken tråd varje segment ligger på
-    // motsvarar W%(I) i BASIC
-    std::vector<int> wireOfSegment;
+    static Geometry standardDipoleMININEC(
+        double freqHz,
+        int    nSeg,
+        double radius
+        );
 
-    // Hjälpfunktioner (ren geometri)
-    double segmentLength(int seg) const;
-
-    // === DEN DU FRÅGAR EFTER ===
-    static Geometry standardDipoleMININEC();
+    double segmentLength(int s) const;
 };
+
 
 #endif

@@ -2,6 +2,7 @@
 #include "impedance_matrix.hpp"
 #include "mininec_kernel.hpp"
 #include "geometry.hpp"
+#include "Vec3.hpp"
 #include <iostream>
 
 // ------------------------------------------------------------
@@ -37,77 +38,33 @@ ImpedanceAssembler::build(const Geometry& geom) const
     int N = static_cast<int>(geom.segments.size());
     ImpedanceMatrix Z(N);
 
-    for (int i = 0; i < N; ++i) {
-
-        const auto& segI = geom.segments[i];
-        const auto& pI1 = geom.nodes[segI.n1];
-        const auto& pI2 = geom.nodes[segI.n2];
-
-        double Tx = pI2.x - pI1.x;
-        double Ty = pI2.y - pI1.y;
-        double Tz = pI2.z - pI1.z;
-
-        for (int j = 0; j < N; ++j) {
+    for (int i = 0; i < N; ++i)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            if (i == j)
+            {
+                Z(i,j) = kernel_.selfImpedanceAnalytic(geom, i);
+                continue;
+            }
 
             auto psiS = kernel_.scalarPotential(geom, i, j);
-            auto psiV = kernel_.scalarPotential(geom, i, j);  // tillfällig lösning
-            auto grad = gradPhiContributionMININEC(geom, i, j);
+            auto psiV = kernel_.vectorPotential(geom, i, j);
 
-            const auto& segJ = geom.segments[j];
-            const auto& pJ1 = geom.nodes[segJ.n1];
-            const auto& pJ2 = geom.nodes[segJ.n2];
-
-            double Ax = pJ2.x - pJ1.x;
-            double Ay = pJ2.y - pJ1.y;
-            double Az = pJ2.z - pJ1.z;
-
-            double Ti_len = std::sqrt(Tx*Tx + Ty*Ty + Tz*Tz);
-            double Aj_len = std::sqrt(Ax*Ax + Ay*Ay + Az*Az);
-
-            if (Ti_len < 1e-12 || Aj_len < 1e-12)
-                continue;
-
-            double dotTA =
-                (Tx*Ax + Ty*Ay + Tz*Az) / (Ti_len * Aj_len);
-
+            Vec3 Ti = geom.segments[i].unitDir(geom);
+            Vec3 Aj = geom.segments[j].unitDir(geom);
+            double dotTA = Ti.dot(Aj);
 
             auto vecTerm = dotTA * psiV;
 
-            if (i == 0 && j == 0) {
-                std::cout << "Z(0,0):\n";
-                std::cout << "  psiS = " << psiS << "\n";
-                std::cout << "  psiV = " << psiV << "\n";
-                std::cout << "  grad = " << grad << "\n";
-            }
-
-
-            if (i == 0 && j == 0) {
-                std::cout << "Z(" << i << "," << j << ")\n";
-                std::cout << "  psiS = " << psiS << "\n";
-                std::cout << "  dotTA = " << dotTA << "\n";
-                std::cout << "  vecTerm = " << vecTerm << "\n";
-                std::cout << "  grad = " << grad << "\n";
-            }
-
-            if (i == 2 && j == 8) {
-                std::cout << "Z(" << i << "," << j << ")\n";
-                std::cout << "  psiS = " << psiS << "\n";
-                std::cout << "  dotTA = " << dotTA << "\n";
-                std::cout << "  vecTerm = " << vecTerm << "\n";
-                std::cout << "  grad = " << grad << "\n";
-            }
-
-            if (i == 5 && j == 6) {
-                std::cout << "Z(" << i << "," << j << ")\n";
-                std::cout << "  psiS = " << psiS << "\n";
-                std::cout << "  dotTA = " << dotTA << "\n";
-                std::cout << "  vecTerm = " << vecTerm << "\n";
-                std::cout << "  grad = " << grad << "\n";
-            }
+            Complex grad(0.0, 0.0);
+            if (!geom.areAdjacentOnSameWire(i, j))
+                grad = gradPhiContributionMININEC(geom, i, j);
 
             Z(i,j) = psiS + vecTerm + grad;
         }
     }
+
 
 /*
     for (int i = 0; i < N; ++i) {
