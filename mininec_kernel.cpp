@@ -1,3 +1,4 @@
+#include <iostream>
 #include "mininec_kernel.hpp"
 #include "geometry.hpp"
 #include "types.hpp"
@@ -178,6 +179,21 @@ void MininecKernel::kernel28(
     im -= std::sin(phase) / D;
 }
 
+Complex MininecKernel::kernel28Value(
+    double dx,
+    double dy,
+    double dz,
+    double A,
+    double A2,
+    double I6
+    ) const
+{
+    double re = 0.0;
+    double im = 0.0;
+    kernel28(re, im, dx, dy, dz, A, A2, I6);
+    return Complex(re, im);
+}
+
 
 std::complex<double>
 MininecKernel::psiGauss(
@@ -187,13 +203,21 @@ MininecKernel::psiGauss(
     bool vectorMode
     ) const
 {
-    int P1 = baseP1(geom, obsSeg);
-    int P2 = baseP2(geom, srcSeg);
-    int P3 = P2 + 1;
+    // Standardfall: observation = segmentmitt (obsSeg)
+    // Source: segment srcSeg n1->n2
 
-    return psiGaussCore(geom, obsSeg, srcSeg, P1, P2, P3, vectorMode);
+    const auto& sSrc = geom.segments[srcSeg];
+    int P2 = sSrc.n1;
+    int P3 = sSrc.n2;
+
+    // Core ska använda segmentmitt => obsIsNode=false
+    bool obsIsNode = false;
+
+    // P1 används inte i detta läge (men vi skickar obsSeg för formalia)
+    int P1 = obsSeg;
+
+    return psiGaussCore(geom, obsSeg, srcSeg, P1, P2, P3, obsIsNode);
 }
-
 
 std::complex<double>
 MininecKernel::psiGaussMININEC(
@@ -205,20 +229,54 @@ MininecKernel::psiGaussMININEC(
     bool vectorMode
     ) const
 {
-    int P1 = baseP1(geom, obsSeg)
-    + (obsOffset > 0 ? 1 : -1);
 
-    int P2, P3;
-    if (srcMode > 0) {
-        P2 = baseP2(geom, srcSeg);
-        P3 = P2 + 1;
-    } else {
-        P3 = baseP2(geom, srcSeg);
-        P2 = P3 - 1;
+
+    const int nSeg = (int)geom.segments.size();
+
+    auto clampSeg = [&](int s) -> int {
+        if (s < 0) return 0;
+        if (s >= nSeg) return nSeg - 1;
+        return s;
+    };
+
+    int useObsSeg = clampSeg(obsSeg);
+    int useSrcSeg = clampSeg(srcSeg);
+
+    // --- P1 = observationsnod (M±1/2) ---
+    const auto& sObs = geom.segments[useObsSeg];
+    int P1 = (obsOffset >= 0.0) ? sObs.n2 : sObs.n1;
+
+    // --- MININEC: srcMode=-1 betyder segmentet (N-1) ---
+    int useSrcSeg2 = useSrcSeg;
+
+    if (srcMode < 0)
+    {
+        // MININEC: (N-1, N) kräver att N-1 existerar
+        if (useSrcSeg == 0)
+            return Complex(0.0, 0.0);
+
+        useSrcSeg2 = useSrcSeg - 1; // INGEN clamp här
     }
 
-    return psiGaussCore(geom, obsSeg, srcSeg, P1, P2, P3, vectorMode);
+
+    const auto& sSrc = geom.segments[useSrcSeg2];
+    int P2 = sSrc.n1;
+    int P3 = sSrc.n2;
+
+    std::cout
+        << "psiGaussMININEC obsSeg=" << obsSeg
+        << " srcSeg=" << srcSeg
+        << " obsOffset=" << obsOffset
+        << " srcMode=" << srcMode
+        << " => P1=" << P1
+        << " P2=" << P2
+        << " P3=" << P3
+        << "\n";
+
+    bool obsIsNode = true;
+    return psiGaussCore(geom, useObsSeg, useSrcSeg2, P1, P2, P3, obsIsNode);
 }
+
 
 std::complex<double>
 MininecKernel::psiGaussCore(
@@ -239,69 +297,84 @@ MininecKernel::psiGaussCore(
     // --------------------------------------------------
     double X1, Y1, Z1;
 
+    // VIKTIGT:
+    // - vectorMode==true  => P1 är NODE-index (GOSUB 102 / nod-observation)
+    // - vectorMode==false => observation är SEGMENTMITT (standardfall)
+    //
+    // OBS: INGEN "gissning" på P1 längre.
     if (vectorMode) {
-        // GOSUB 102: nod
-        X1 = geom.nodes[P1].x;
-        Y1 = geom.nodes[P1].y;
-        Z1 = geom.nodes[P1].z;
+        // Observation i nod P1
+        const auto& n = geom.nodes[P1];
+        X1 = n.x; Y1 = n.y; Z1 = n.z;
     } else {
-        // GOSUB 87: mittpunkt av segment
-        const auto& s = geom.segments[P1];
+        // Observation i segmentmitt (obsSeg)
+        const auto& s = geom.segments[obsSeg];
         const auto& a = geom.nodes[s.n1];
         const auto& b = geom.nodes[s.n2];
-
-        X1 = 0.5 * (a.x + b.x);
-        Y1 = 0.5 * (a.y + b.y);
-        Z1 = 0.5 * (a.z + b.z);
+        X1 = 0.5*(a.x + b.x);
+        Y1 = 0.5*(a.y + b.y);
+        Z1 = 0.5*(a.z + b.z);
     }
 
     // --------------------------------------------------
-    // 2) Källpunkter X2 och X3
+    // 2) Källpunkter X2 och X3 (NODER)
     // --------------------------------------------------
-    double X2, Y2, Z2;
-    double X3, Y3, Z3;
+    const auto& n2 = geom.nodes[P2];
+    const auto& n3 = geom.nodes[P3];
 
-    // P2
+    double X2 = n2.x, Y2 = n2.y, Z2 = n2.z;
+    double X3 = n3.x, Y3 = n3.y, Z3 = n3.z;
+
+    // --------------------------------------------------
+    // 3) Gauss-integral längs källsegmentet P2->P3
+    // --------------------------------------------------
+    double sx = X3 - X2;
+    double sy = Y3 - Y2;
+    double sz = Z3 - Z2;
+
+    double Ls = std::sqrt(sx*sx + sy*sy + sz*sz);
+    if (Ls < 1e-12)
+        return {0.0, 0.0};
+
+    static const double t[4] = {
+        -0.8611363115940526,
+        -0.3399810435848563,
+        0.3399810435848563,
+        0.8611363115940526
+    };
+
+    static const double wgt[4] = {
+        0.3478548451374538,
+        0.6521451548625461,
+        0.6521451548625461,
+        0.3478548451374538
+    };
+
+    Complex sum(0.0, 0.0);
+
+    for (int g = 0; g < 4; ++g)
     {
-        const auto& s = geom.segments[P2];
-        const auto& a = geom.nodes[s.n1];
-        const auto& b = geom.nodes[s.n2];
+        double u = 0.5 * (1.0 + t[g]);
 
-        X2 = 0.5 * (a.x + b.x);
-        Y2 = 0.5 * (a.y + b.y);
-        Z2 = 0.5 * (a.z + b.z);
+        double X = X2 + u * sx;
+        double Y = Y2 + u * sy;
+        double Z = Z2 + u * sz;
+
+        double dx = X - X1;
+        double dy = Y - Y1;
+        double dz = Z - Z1;
+
+        double A  = geom.segments[srcSeg].radius;
+        double A2 = A * A;
+        double I6 = 0.0;   // tills vidare
+
+        sum += wgt[g] * kernel28Value(dx, dy, dz, A, A2, I6);
     }
 
-    // P3
-    {
-        const auto& s = geom.segments[P3];
-        const auto& a = geom.nodes[s.n1];
-        const auto& b = geom.nodes[s.n2];
-
-        X3 = 0.5 * (a.x + b.x);
-        Y3 = 0.5 * (a.y + b.y);
-        Z3 = 0.5 * (a.z + b.z);
-    }
-
-    // --------------------------------------------------
-    // 3) Relativ vektor (DET DU FRÅGADE OM)
-    // --------------------------------------------------
-    double dx = X3 - X1;
-    double dy = Y3 - Y1;
-    double dz = Z3 - Z1;
-
-    // --------------------------------------------------
-    // 4) Gauss + kernel28 (kommer härnäst)
-    // --------------------------------------------------
-    int w = geom.segments[srcSeg].wire;
-    double A = geom.segments[srcSeg].radius;
-    double A2 = A * A;
-    double I6 = 0.0;   // tills vidare
-
-    kernel28(re, im, dx, dy, dz, A, A2, I6);
-
-    return {re, im};
+    sum *= (Ls * 0.5);
+    return sum;
 }
+
 
 Complex MininecKernel::vectorPotential(
     const Geometry& geom, int obsSeg, int srcSeg) const
@@ -360,4 +433,64 @@ Complex MininecKernel::selfImpedanceAnalytic(
 
     return Complex(realPart, imagPart);
 }
+
+Complex MininecKernel::gradPhiContributionMININEC(
+    const Geometry& geom,
+    int obsSeg,
+    int srcSeg
+    ) const
+{
+    // std::cout << "gradPhi called obs=" << obsSeg << " src=" << srcSeg << "\n";
+
+    // --------------------------------------------
+    // MININEC BASIC 274–311 (princip):
+    // gradPhi ≈ ( ψ(+,+) - ψ(+,-) - ψ(-,+) + ψ(-,-) ) / (Δz_obs * Δz_src)
+    //
+    // där:
+    //   obsOffset = +0.5 / -0.5  (väljer "änden" på observationssegmentet)
+    //   srcMode   = +1 / -1     (väljer (N,N+1) eller (N-1,N))
+    //
+    // Här använder vi scalarPotentialMININEC (GOSUB 87).
+    // --------------------------------------------
+
+    const double Lobs = geom.segments[obsSeg].length(geom);
+    const double Lsrc = geom.segments[srcSeg].length(geom);
+
+    if (Lobs <= 0.0 || Lsrc <= 0.0)
+        return Complex(0.0, 0.0);
+
+    // ψ( obsOffset, srcMode )
+    Complex psi_pp = scalarPotentialMININEC(geom, obsSeg, srcSeg, +0.5, +1);
+    Complex psi_pm = scalarPotentialMININEC(geom, obsSeg, srcSeg, +0.5, -1);
+    Complex psi_mp = scalarPotentialMININEC(geom, obsSeg, srcSeg, -0.5, +1);
+    Complex psi_mm = scalarPotentialMININEC(geom, obsSeg, srcSeg, -0.5, -1);
+
+    // “Mixed finite difference”
+    Complex mixed = (psi_pp - psi_pm - psi_mp + psi_mm);
+
+    // Skala enligt segmentlängder (MININEC använder en diskret derivata)
+    return mixed / (Lobs * Lsrc);
+}
+
+Complex MininecKernel::vectorPotentialContributionMININEC(
+    const Geometry& geom,
+    int obsSeg,      // M
+    int srcSeg,      // N
+    double obsOffset // +0.5 eller -0.5
+    ) const
+{
+    // ψ(M±1/2, N,   N+1)
+    Complex psi_plus  = psiGaussMININEC(geom, obsSeg, srcSeg, obsOffset, +1, true);
+
+    // ψ(M±1/2, N-1, N)
+    Complex psi_minus = psiGaussMININEC(geom, obsSeg, srcSeg, obsOffset, -1, true);
+
+    // MININEC: vector potential term uses (psi_plus - psi_minus) / Lsrc
+    const double Lsrc = geom.segmentLength(srcSeg);
+    if (Lsrc < 1e-12) return Complex(0.0, 0.0);
+
+    return (psi_plus - psi_minus) / Lsrc;
+}
+
+
 

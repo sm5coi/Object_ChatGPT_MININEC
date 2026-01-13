@@ -75,7 +75,7 @@ int main()
     int N = Z.size();
 
     std::cout << "\n geom.segments[i].wire = ";
-    for (int i = 0; i <= N; ++i)
+    for (int i = 0; i < N; ++i)
     {
         std::cout << geom.segments[i].wire << "  ";
     }
@@ -101,7 +101,7 @@ int main()
     auto I = solveLinearSystem(A, V);
 
     std::cout << "\n I = ";
-    for (int i = 0; i <= N; ++i)
+    for (int i = 0; i < N; ++i)
     {
         std::cout << I[i] << "  ";
     }
@@ -110,7 +110,15 @@ int main()
     // inimpedans
     Complex Z_in = Complex(1.0, 0.0) / I[feedSeg];
 
-    std::cout << "\n Z_in = " << Z_in << std::endl;
+    std::cout << "\n Z_in = " << Z_in << std::endl << std::endl;
+
+    double Ltot = 0.0;
+    for (int s = 0; s < (int)geom.segments.size(); ++s)
+        Ltot += geom.segmentLength(s);
+
+    std::cout << "Total dipole length = " << Ltot << " m\n";
+    std::cout << "Lambda/2 = " << (c0/freq)/2.0 << " m\n";
+
 
 
     // här kan du senare lösa MoM-systemet

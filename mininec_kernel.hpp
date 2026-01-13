@@ -54,6 +54,13 @@ public:
         int srcMode
         ) const;
 
+    Complex vectorPotentialContributionMININEC(
+        const Geometry& geom,
+        int obsSeg,     // M
+        int srcSeg,     // N
+        double obsOffset // +0.5 eller -0.5 (vilken ände på obsSeg)
+        ) const;
+
 private:
     double k_;     // vågtal
     double srm_;   // small-radius-modifier (SRM)
@@ -86,7 +93,7 @@ private:
         int P3,
         bool vectorMode
         ) const
-    ;
+        ;
 
     // ===== Wrapper: standardfall =====
     Complex psiGauss(
@@ -116,6 +123,16 @@ private:
         double A2,     // A*A
         double I6      // exact kernel-term (0 eller ≠0)
         ) const;
+
+    Complex kernel28Value(
+        double dx,
+        double dy,
+        double dz,
+        double A,
+        double A2,
+        double I6
+        ) const;
+
 };
 
 #endif
